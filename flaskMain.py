@@ -4,6 +4,7 @@ import tushareService as tss
 from flask_restplus import Resource, Api
 import json
 import pandas as pd
+import time
 import logging
 from logging.handlers import RotatingFileHandler
 logger = logging.getLogger("mainModule")
@@ -62,7 +63,7 @@ class AllPriceLowerThanMa20(Resource):
 class insertAllHistData(Resource):
     @api.doc(id='insertAllHistData')
     def get(self):
-        tss.insertAllHistData('2018-05-16', '2018-05-23')
+        tss.insertAllHistData('2018-05-16', time.strftime("%Y-%d-%m"))
 
 @api.route('/refreshAllHistData')
 class refreshAllHistData(Resource):
@@ -70,5 +71,12 @@ class refreshAllHistData(Resource):
     def get(self):
         tss.refreshAllHistData('2015-05-16', '2018-05-23')
 
+@api.route('/refreshAll')
+class refreshAll(Resource):
+    @api.doc(id='refreshAll')
+    def get(self):
+        tss.refreshAll()
+
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host="0.0.0.0", debug=True)

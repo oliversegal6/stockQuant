@@ -5,6 +5,7 @@ import tushare as ts
 import mongoService
 import traceback
 import pandas as pd
+import time
 from concurrent.futures import ThreadPoolExecutor
 import logging
 logger = logging.getLogger(__name__)
@@ -15,19 +16,34 @@ formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(messag
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
-def insertAllStocksOfToday():
+def refreshAllStocksOfToday():
+    print("refreshAllStocksOfToday...")
     df = ts.get_today_all()
-    insertAndPrintResult('todaydata', df)
+    refreshAndPrintResult('todaydata', df)
 
-def insertStocksByConceptClassified():
+def refreshStocksByConceptClassified():
+    print("refreshStocksByConceptClassified...")
     df = ts.get_concept_classified()
-    insertAndPrintResult('stocksByConcept', df)
+    refreshAndPrintResult('stocksByConcept', df)
 
-def insertStocksByIndustryClassified():
+def refreshStocksByIndustryClassified():
+    print("refreshStocksByIndustryClassified...")
     df = ts.get_concept_classified()
-    insertAndPrintResult('stocksByIndustry', df)
+    refreshAndPrintResult('stocksByIndustry', df)
 
-def insertTop10Holders():
+def refreshStocksBasics():
+    print("refreshStocksBasics...")
+    df = ts.get_stock_basics()
+    refreshAndPrintResultResetIndex('stocksBasics', df)
+
+def refreshFundHoldings():
+    print("refreshFundHoldings...")
+    df1 = ts.fund_holdings(2018, 1)
+    refreshAndPrintResult('fundHoldings', df1)
+
+
+def refreshTop10Holders():
+    print("refreshTop10Holders...")
     mongoService.drop_collection('top10Holders')
     mongoService.drop_collection('stockHoldersChanges')
     res = mongoService.find('stocksBasics', {})
@@ -46,13 +62,19 @@ def insertTop10Holders():
         except Exception:
             logger.error(traceback.format_exc())
 
-def insertStocksBasics():
-    df = ts.get_stock_basics()
-    refreshAndPrintResultResetIndex('stocksBasics', df)
-
 def refreshAllHistData(start, end):
+    print("refreshAllHistData...")
     mongoService.drop_collection('stocksHistData')
     insertAllHistData(start, end)
+
+def refreshAll():
+    refreshAllStocksOfToday()
+    refreshStocksByConceptClassified()
+    refreshStocksByIndustryClassified()
+    refreshStocksBasics()
+    refreshFundHoldings()
+    refreshTop10Holders()
+    refreshAllHistData('2018-05-16', time.strftime("%Y-%d-%m"))
 
 def insertAllHistData(start, end):
     res = mongoService.find('stocksBasics', {})
@@ -92,14 +114,6 @@ def insertSpecificHistData(code, startDate, endDate):
         df['v_ma' + str(ma)] = pd.Series(df.volume).rolling(window=ma).mean()
         
     insertAndPrintResultResetIndex('stocksHistData', df)
-
-def insertFundHoldings():
-    df = ts.fund_holdings(2017, 4)
-    df1 = ts.fund_holdings(2018, 1)
-    insertAndPrintResult('fundHoldings', df)
-
-    insertAndPrintResult('fundHoldings', df1)
-
 
 def insertAndPrintResultResetIndex(tableName, data):
     insertAndPrintResult(tableName, data.reset_index())
