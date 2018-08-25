@@ -2,6 +2,10 @@ import json
 import tushare as ts
 from mongoConn import MongoConn
 import traceback
+import logging  # 引入logging模块
+logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s')  # logging.basicConfig函数对日志的输出格式及方式做相关配置
+
 
 def check_connected(conn):
     #检查是否连接成功
@@ -15,16 +19,17 @@ def insertOrUpdate(table, value):
         check_connected(my_conn)
         my_conn.db[table].save(value)
     except Exception:
-        print(traceback.format_exc())
+        logging.info(traceback.format_exc())
 
 def insert(table, value):
     # 可以使用insert直接一次性向mongoDB插入整个列表，也可以插入单条记录，但是'_id'重复会报错
     try:
+        logging.info('insert')
         my_conn = MongoConn()
         check_connected(my_conn)
         my_conn.db[table].insert(value, continue_on_error=True)
     except Exception:
-        print(traceback.format_exc())
+        logging.info(traceback.format_exc())
 
 def update(table, conditions, value, s_upsert=False, s_multi=False):
     try:
@@ -32,7 +37,7 @@ def update(table, conditions, value, s_upsert=False, s_multi=False):
         check_connected(my_conn)
         my_conn.db[table].update(conditions, value, upsert=s_upsert, multi=s_multi)
     except Exception:
-        print(traceback.format_exc())
+        logging.info(traceback.format_exc())
 
 def upsert_mary(table, datas):
     #批量更新插入，根据‘_id’更新或插入多条记录。
@@ -47,7 +52,7 @@ def upsert_mary(table, datas):
             bulk.find({'_id': _id}).upsert().update({'$set': data})
         bulk.execute()
     except Exception:
-        print(traceback.format_exc())
+        logging.info(traceback.format_exc())
 
 def upsert_one(table, data):
     #更新插入，根据‘_id’更新一条记录，如果‘_id’的值不存在，则插入一条记录
@@ -61,7 +66,7 @@ def upsert_one(table, data):
             data.pop('_id') #删除'_id'键
             my_conn.db[table].update(query, {'$set': data})
     except Exception:
-        print(traceback.format_exc())
+        logging.info(traceback.format_exc())
 
 def find_one(table, value):
     #根据条件进行查询，返回一条记录
@@ -70,16 +75,22 @@ def find_one(table, value):
         check_connected(my_conn)
         return my_conn.db[table].find_one(value)
     except Exception:
-        print(traceback.format_exc())
+        logging.info(traceback.format_exc())
 
 def find(table, value):
     #根据条件进行查询，返回所有记录
     try:
         my_conn = MongoConn()
         check_connected(my_conn)
-        return my_conn.db[table].find(value)
+        result = None
+        rs = my_conn.db[table].find(value)
+        for i in rs:
+            del i['_id']
+            result = i
+        #logging.info("find result: " + json.dumps(result))
+        return result
     except Exception:
-        print(traceback.format_exc())
+        logging.info(traceback.format_exc())
 
 def drop_collection(table):
     #查询指定列的所有值
@@ -88,4 +99,4 @@ def drop_collection(table):
         check_connected(my_conn)
         return my_conn.db.drop_collection(table)
     except Exception:
-        print(traceback.format_exc())
+        logging.info(traceback.format_exc())

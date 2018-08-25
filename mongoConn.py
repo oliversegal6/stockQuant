@@ -2,11 +2,14 @@
 import pymongo
 import sys
 import traceback    
+import logging  # 引入logging模块
+logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s')  # logging.basicConfig函数对日志的输出格式及方式做相关配置
 
 MONGODB_CONFIG = {
     'host': '172.17.0.1',
     'port': 27017,
-    'db_name': 'stockmining',
+    'db_name': 'tobebetter',
     'username': None,
     'password': None
 }
@@ -16,6 +19,7 @@ class MongoConn(object):
     def __init__(self):
         # connect db
         try:
+            logging.info('connect db...')
             self.conn = pymongo.MongoClient(MONGODB_CONFIG['host'], MONGODB_CONFIG['port'])
             self.db = self.conn[MONGODB_CONFIG['db_name']]  # connect db
             self.username=MONGODB_CONFIG['username']
@@ -25,6 +29,6 @@ class MongoConn(object):
             else:
                 self.connected = True
         except Exception:
-            print(traceback.format_exc())
-            print('Connect Statics Database Fail.')
+            logging.info(traceback.format_exc())
+            logging.info('Connect Statics Database Fail.')
             sys.exit(1)   

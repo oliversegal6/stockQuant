@@ -1,7 +1,9 @@
-from flask import Flask, Blueprint
 import quant as qt
 import tushareService as tss  
+import mongoService as mgs  
+from flask import Flask, Blueprint
 from flask_restplus import Resource, Api
+from flask_restplus import fields, marshal_with
 import json
 import pandas as pd
 import time
@@ -63,13 +65,13 @@ class AllPriceLowerThanMa20(Resource):
 class insertAllHistData(Resource):
     @api.doc(id='insertAllHistData')
     def get(self):
-        tss.insertAllHistData('2018-05-16', time.strftime("%Y-%d-%m"))
+        tss.insertAllHistData('2018-05-16', time.strftime("%Y-%m-%d"))
 
 @api.route('/refreshAllHistData')
 class refreshAllHistData(Resource):
     @api.doc(id='refreshAllHistData')
     def get(self):
-        tss.refreshAllHistData('2015-05-16', '2018-05-23')
+        tss.refreshAllHistData('2015-05-16', time.strftime("%Y-%m-%d"))
 
 @api.route('/refreshAll')
 class refreshAll(Resource):
@@ -77,6 +79,35 @@ class refreshAll(Resource):
     def get(self):
         tss.refreshAll()
 
+
+resource_fields = {
+    'value':   fields.String
+}
+
+# 定义命名空间
+ns = api.namespace('Childrens', description='Children operations')
+ 
+children = api.model('Children', {
+     'id': fields.Integer(readOnly=True, description='The Children unique identifier'),
+     'name': fields.String(required=True, description='The Children name')
+})
+ 
+@ns.route('/')
+class ChildrenList(Resource):
+    @ns.doc('createChildren')
+    @ns.expect(children)
+    @ns.marshal_with(children, code=201)
+    def post(self):
+        logger.info('insert Children')
+        mgs.insert('children',api.payload)
+
+@ns.route('/<string:query>')
+@ns.response(404, 'Children not found')
+@ns.param('query', 'The Children identifier')
+class Children(Resource):
+    def get(self, query):
+        logger.info('get Children' + query)
+        return mgs.find('children',json.loads(query))
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", debug=True)

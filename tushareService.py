@@ -74,7 +74,7 @@ def refreshAll():
     refreshStocksBasics()
     refreshFundHoldings()
     refreshTop10Holders()
-    refreshAllHistData('2018-05-16', time.strftime("%Y-%d-%m"))
+    refreshAllHistData('2018-05-16', time.strftime("%Y-%m-%d"))
 
 def insertAllHistData(start, end):
     res = mongoService.find('stocksBasics', {})
