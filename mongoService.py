@@ -1,6 +1,7 @@
 import json
 import tushare as ts
 from mongoConn import MongoConn
+from bson.objectid import ObjectId
 import traceback
 import logging  # 引入logging模块
 logging.basicConfig(level=logging.DEBUG,
@@ -18,6 +19,14 @@ def insertOrUpdate(table, value):
         my_conn = MongoConn()
         check_connected(my_conn)
         my_conn.db[table].save(value)
+    except Exception:
+        logging.info(traceback.format_exc())
+
+def delete(table, value):
+    try:
+        my_conn = MongoConn()
+        check_connected(my_conn)
+        my_conn.db[table].remove(value)
     except Exception:
         logging.info(traceback.format_exc())
 
@@ -39,7 +48,7 @@ def update(table, conditions, value, s_upsert=False, s_multi=False):
     except Exception:
         logging.info(traceback.format_exc())
 
-def upsert_mary(table, datas):
+def upsert_many(table, datas):
     #批量更新插入，根据‘_id’更新或插入多条记录。
     #把'_id'值不存在的记录，插入数据库。'_id'值存在，则更新记录。
     #如果更新的字段在mongo中不存在，则直接新增一个字段
@@ -59,10 +68,10 @@ def upsert_one(table, data):
     try:
         my_conn = MongoConn()
         check_connected(my_conn)
-        query = {'_id': data.get('_id','')}
-        if not my_conn.db[table].find_one(query):
+        if '' == data.get('_id',''):
             my_conn.db[table].insert(data)
         else:
+            query = {'_id': ObjectId(data.get('_id',''))}
             data.pop('_id') #删除'_id'键
             my_conn.db[table].update(query, {'$set': data})
     except Exception:
@@ -73,7 +82,9 @@ def find_one(table, value):
     try:
         my_conn = MongoConn()
         check_connected(my_conn)
-        return my_conn.db[table].find_one(value)
+        result = my_conn.db[table].find_one(value)
+        del result['_id']
+        return result
     except Exception:
         logging.info(traceback.format_exc())
 
@@ -82,13 +93,13 @@ def find(table, value):
     try:
         my_conn = MongoConn()
         check_connected(my_conn)
-        result = None
+        results = []
         rs = my_conn.db[table].find(value)
         for i in rs:
-            del i['_id']
-            result = i
-        #logging.info("find result: " + json.dumps(result))
-        return result
+            i['_id'] = str(i['_id'])
+            results.append(i)
+            logging.info("find result: " + json.dumps(i))
+        return results
     except Exception:
         logging.info(traceback.format_exc())
 

@@ -1,9 +1,9 @@
 import quant as qt
 import tushareService as tss  
 import mongoService as mgs  
-from flask import Flask, Blueprint
-from flask_restplus import Resource, Api
-from flask_restplus import fields, marshal_with
+from functools import wraps
+from flask import Flask, Blueprint, request, make_response
+from flask_restplus import Resource, Api, reqparse, fields, marshal_with
 import json
 import pandas as pd
 import time
@@ -27,9 +27,18 @@ logger.addHandler(console)
 
 app = Flask(__name__)
 #api = Api(app, version='1.0', title='StockMining API',description='StockMining API',)
-blueprint = Blueprint('api', __name__, url_prefix='/api')
+blueprint = Blueprint('api', __name__)
+#blueprint = Blueprint('api', __name__, url_prefix='/api')
 api = Api(blueprint, version='1.0', title='StockMining API', doc='/doc/')
 app.register_blueprint(blueprint)
+
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,session_id')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS,HEAD')
+    # 这里不能使用add方法，否则会出现 The 'Access-Control-Allow-Origin' header contains multiple values 的问题
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    return response
 
 @api.route('/AllPriceLowerThanMa20')
 class AllPriceLowerThanMa20(Resource):
@@ -80,27 +89,98 @@ class refreshAll(Resource):
         tss.refreshAll()
 
 
-resource_fields = {
-    'value':   fields.String
-}
-
 # 定义命名空间
-ns = api.namespace('Childrens', description='Children operations')
- 
+ns = api.namespace('ToBeBetter', description='ToBeBetter operations')
+parser = reqparse.RequestParser()
+parser.add_argument('query', type=str, required=True, help='query for this resource')
 children = api.model('Children', {
      'id': fields.Integer(readOnly=True, description='The Children unique identifier'),
      'name': fields.String(required=True, description='The Children name')
 })
- 
-@ns.route('/')
-class ChildrenList(Resource):
+
+@ns.route('/children')
+class Children(Resource):
     @ns.doc('createChildren')
     @ns.expect(children)
     @ns.marshal_with(children, code=201)
     def post(self):
         logger.info('insert Children')
-        mgs.insert('children',api.payload)
+        mgs.upsert_one('children',api.payload)
 
+    @ns.param('query', 'The Children identifier')
+    def get(self):
+        args = parser.parse_args()
+        query = args["query"]
+        logger.info('get Children' + query)
+        return mgs.find('children',json.loads(query))
+
+    @ns.param('query', 'The Children identifier')
+    def delete(self, query):
+        args = parser.parse_args()
+        query = args["query"]
+        logger.info('delete Children' + query)
+        return mgs.delete('children',json.loads(query))
+
+target = api.model('Target', {
+     'id': fields.Integer(readOnly=True, description='The Target unique identifier'),
+     'name': fields.String(required=True, description='The Target name'),
+     'desc': fields.String(required=True, description='The Target description')
+})
+@ns.route('/target')
+class Target(Resource):
+    @ns.doc('createTarget')
+    @ns.expect(target)
+    @ns.marshal_with(target, code=201)
+    def post(self):
+        logger.info('insert target')
+        mgs.upsert_one('target',api.payload)
+
+    @ns.param('query', 'The target identifier')
+    def get(self):
+        args = parser.parse_args()
+        query = args["query"]
+        logger.info('get target' + query)
+        return mgs.find('target',json.loads(query))
+
+    @ns.param('query', 'The target identifier')
+    def delete(self, query):
+        args = parser.parse_args()
+        query = args["query"]
+        logger.info('delete target' + query)
+        return mgs.delete('target',json.loads(query))
+
+target = api.model('Score', {
+     'id': fields.Integer(readOnly=True, description='The Score unique identifier'),
+     'childId': fields.Integer(required=True, description='childId'),
+     'targetId': fields.Integer(required=True, description='The Target Id'),
+     'score': fields.Float(required=True, description='Score'),
+     'date': fields.Date(required=True, description='The Score Date')
+
+})
+@ns.route('/score')
+class Score(Resource):
+    @ns.doc('createScore')
+    @ns.expect(target)
+    @ns.marshal_with(target, code=201)
+    def post(self):
+        logger.info('insert score')
+        mgs.upsert_one('score',api.payload)
+
+    @ns.param('query', 'The score identifier')
+    def get(self):
+        args = parser.parse_args()
+        query = args["query"]
+        logger.info('get score' + query)
+        return mgs.find('score',json.loads(query))
+
+    @ns.param('query', 'The score identifier')
+    def delete(self, query):
+        args = parser.parse_args()
+        query = args["query"]
+        logger.info('delete score' + query)
+        return mgs.delete('score',json.loads(query))
+
+'''
 @ns.route('/<string:query>')
 @ns.response(404, 'Children not found')
 @ns.param('query', 'The Children identifier')
@@ -108,6 +188,11 @@ class Children(Resource):
     def get(self, query):
         logger.info('get Children' + query)
         return mgs.find('children',json.loads(query))
+
+    def delete(self, query):
+        logger.info('delete Children' + query)
+        return mgs.delete('children',json.loads(query))
+'''
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", debug=True)
