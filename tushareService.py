@@ -17,33 +17,33 @@ handler.setFormatter(formatter)
 logger.addHandler(handler)
 
 def refreshAllStocksOfToday():
-    print("refreshAllStocksOfToday...")
+    logger.info("refreshAllStocksOfToday...")
     df = ts.get_today_all()
     refreshAndPrintResult('todaydata', df)
 
 def refreshStocksByConceptClassified():
-    print("refreshStocksByConceptClassified...")
+    logger.info("refreshStocksByConceptClassified...")
     df = ts.get_concept_classified()
     refreshAndPrintResult('stocksByConcept', df)
 
 def refreshStocksByIndustryClassified():
-    print("refreshStocksByIndustryClassified...")
+    logger.info("refreshStocksByIndustryClassified...")
     df = ts.get_concept_classified()
     refreshAndPrintResult('stocksByIndustry', df)
 
 def refreshStocksBasics():
-    print("refreshStocksBasics...")
+    logger.info("refreshStocksBasics...")
     df = ts.get_stock_basics()
     refreshAndPrintResultResetIndex('stocksBasics', df)
 
 def refreshFundHoldings():
-    print("refreshFundHoldings...")
+    logger.info("refreshFundHoldings...")
     df1 = ts.fund_holdings(2018, 1)
     refreshAndPrintResult('fundHoldings', df1)
 
 
 def refreshTop10Holders():
-    print("refreshTop10Holders...")
+    logger.info("refreshTop10Holders...")
     mongoService.drop_collection('top10Holders')
     mongoService.drop_collection('stockHoldersChanges')
     res = mongoService.find('stocksBasics', {})
@@ -52,7 +52,7 @@ def refreshTop10Holders():
         try:
             logger.info('count %d' %count)
             logger.info('code is %s' %row['code'])
-            df = ts.top10_holders(row['code'], 2018, 1)
+            df = ts.top10_holders(row['code'], 2018, 3)
             df[0]['code'] = row['code']
             df[1]['code'] = row['code']
             logger.info('Top10 Holders of %s' %(row['code']))
@@ -63,7 +63,7 @@ def refreshTop10Holders():
             logger.error(traceback.format_exc())
 
 def refreshAllHistData(start, end):
-    print("refreshAllHistData...")
+    logger.info("refreshAllHistData...")
     mongoService.drop_collection('stocksHistData')
     insertAllHistData(start, end)
 
@@ -77,30 +77,33 @@ def refreshAll():
     refreshAllHistData('2018-05-16', time.strftime("%Y-%m-%d"))
 
 def insertAllHistData(start, end):
-    res = mongoService.find('stocksBasics', {})
+    res = mongoService.find('stockBasic', {})
 
     count = 1
-    with ThreadPoolExecutor(max_workers=20) as pool:
-        for row in res:
-            logger.info('count %d' %count)
-            pool.submit(insertSpecificHistData, row['code'], start, end)
-            count+=1
-    #for row in res:
-     #   logger.info('count %d' %count)
-     #   logger.info('code is %s' %row['code'])
-     #   insertSpecificHistData(row['code'], start, end)
-     #   count+=1
+    #with ThreadPoolExecutor(max_workers=20) as pool:
+    #    for row in res:
+    #        logger.info('count %d' %count)
+    #        pool.submit(insertSpecificHistData, row['code'], start, end)
+    #        count+=1
+    for row in res:
+       logger.info('count %d' %count)
+       logger.info('code is %s' %row['ts_code'])
+       insertSpecificHistData(row['ts_code'], start, end)
+       count+=1
     
-    insertSpecificHistData('sh', start, end)#获取上证指数k线数据，其它参数与个股一致，下同
-    insertSpecificHistData('sz', start, end)#获取深圳成指k线数据
-    insertSpecificHistData('hs300', start, end)#获取沪深300指数k线数据
-    insertSpecificHistData('sz50', start, end)#获取上证50指数k线数据
-    insertSpecificHistData('zxb', start, end)#获取中小板指数k线数据
-    insertSpecificHistData('cyb', start, end)#获取创业板指数k线数据
+    #insertSpecificHistData('sh', start, end)#获取上证指数k线数据，其它参数与个股一致，下同
+    #insertSpecificHistData('sz', start, end)#获取深圳成指k线数据
+    #insertSpecificHistData('hs300', start, end)#获取沪深300指数k线数据
+    #insertSpecificHistData('sz50', start, end)#获取上证50指数k线数据
+    #insertSpecificHistData('zxb', start, end)#获取中小板指数k线数据
+    #insertSpecificHistData('cyb', start, end)#获取创业板指数k线数据
 
 def insertSpecificHistData(code, startDate, endDate):
     logger.info('code is %s, start date: %s, end date: %s' %(code, startDate, endDate))
-    df = ts.get_hist_data(code, start=startDate, end=endDate)
+    #df = ts.get_hist_data(code, start=startDate, end=endDate)
+    
+    df = ts.pro_bar(pro_api=pro, ts_code=code, adj='qfq', start_date=startDate, end_date=endDate)
+    #df = ts.get_h_data(code, start=startDate, end=endDate)
     if(df is None):
         logger.info('Can not find hist data for %s' %code)
         return
@@ -111,15 +114,20 @@ def insertSpecificHistData(code, startDate, endDate):
     ma_list = [30,60,120,250]
     for ma in ma_list:
         df['ma' + str(ma)] = pd.Series(df.close).rolling(window=ma).mean()
-        df['v_ma' + str(ma)] = pd.Series(df.volume).rolling(window=ma).mean()
+        df['v_ma' + str(ma)] = pd.Series(df.amount).rolling(window=ma).mean()
         
-    insertAndPrintResultResetIndex('stocksHistData', df)
+    #insertAndPrintResultResetIndex('stocksHistData', df)
+    insertAndPrintResult('stocksHistData', df)
 
 def insertAndPrintResultResetIndex(tableName, data):
     insertAndPrintResult(tableName, data.reset_index())
 
 def insertAndPrintResult(tableName, data):
-    mongoService.insert(tableName, json.loads(data.to_json(orient='records')))
+    jsonStr = data.to_json(orient='records');
+    if(jsonStr is None):
+        logger.info('Cant insert to db as data is empty for %s' %jsonStr)
+        return
+    mongoService.insert(tableName, json.loads(jsonStr))
     #res=mongoService.find(tableName,{})
     #for k in res:
         #print(k)
@@ -131,18 +139,23 @@ def refreshAndPrintResult(tableName, data):
     mongoService.drop_collection(tableName)
     mongoService.insert(tableName, json.loads(data.to_json(orient='records')))
     res=mongoService.find(tableName,{})
-    for k in res:
-        print(k)
+    #for k in res:
+    #    print(k)
 
 if __name__ == "__main__":
+    logger.info(ts.__version__)
+    ts.set_token('5dfbbdf5953c683a061952a4a6c7eae376dc2a892ee3ce5ed4117d64')
+    pro = ts.pro_api()
     #insertAllStocksOfToday()
 
     #insertStocksByConceptClassified()
     #insertStocksByIndustryClassified()
-    #insertStocksBasics()
+    # #insertStocksBasics()
     #insertFundHoldings()
     #print(ts.__version__)
-    refreshAllHistData('2015-05-14', '2018-05-16')
+    refreshAllHistData('20150514', '20190104')
+    #refreshStocksBasics()
+    #refreshTop10Holders()
     #insertTop10Holders()
     #df = ts.get_hist_data('300253')
    

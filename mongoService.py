@@ -98,7 +98,7 @@ def find(table, value):
         for i in rs:
             i['_id'] = str(i['_id'])
             results.append(i)
-            logging.info("find result: " + json.dumps(i))
+            #logging.info("find result: " + json.dumps(i))
         return results
     except Exception:
         logging.info(traceback.format_exc())
