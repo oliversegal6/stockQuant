@@ -7,7 +7,8 @@ logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s')  # logging.basicConfig函数对日志的输出格式及方式做相关配置
 
 MONGODB_CONFIG = {
-    'host': '172.17.0.1',
+    'host': '106.14.219.109',
+    #'host': '172.17.0.1',
     'port': 27017,
     'db_name': 'stockminingnew',
     'username': None,

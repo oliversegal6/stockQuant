@@ -80,11 +80,6 @@ def insertAllHistData(start, end):
     res = mongoService.find('stockBasic', {})
 
     count = 1
-    #with ThreadPoolExecutor(max_workers=20) as pool:
-    #    for row in res:
-    #        logger.info('count %d' %count)
-    #        pool.submit(insertSpecificHistData, row['code'], start, end)
-    #        count+=1
     for row in res:
        logger.info('count %d' %count)
        logger.info('code is %s' %row['ts_code'])
@@ -100,10 +95,8 @@ def insertAllHistData(start, end):
 
 def insertSpecificHistData(code, startDate, endDate):
     logger.info('code is %s, start date: %s, end date: %s' %(code, startDate, endDate))
-    #df = ts.get_hist_data(code, start=startDate, end=endDate)
-    
+    pro = ts.pro_api()
     df = ts.pro_bar(pro_api=pro, ts_code=code, adj='qfq', start_date=startDate, end_date=endDate)
-    #df = ts.get_h_data(code, start=startDate, end=endDate)
     if(df is None):
         logger.info('Can not find hist data for %s' %code)
         return
@@ -145,7 +138,7 @@ def refreshAndPrintResult(tableName, data):
 if __name__ == "__main__":
     logger.info(ts.__version__)
     ts.set_token('5dfbbdf5953c683a061952a4a6c7eae376dc2a892ee3ce5ed4117d64')
-    pro = ts.pro_api()
+    #pro = ts.pro_api()
     #insertAllStocksOfToday()
 
     #insertStocksByConceptClassified()
@@ -153,7 +146,8 @@ if __name__ == "__main__":
     # #insertStocksBasics()
     #insertFundHoldings()
     #print(ts.__version__)
-    refreshAllHistData('20150514', '20190104')
+    refreshAllHistData('20150514', '20190111')
+    #insertAllHistData('20190107', '20190111')
     #refreshStocksBasics()
     #refreshTop10Holders()
     #insertTop10Holders()
