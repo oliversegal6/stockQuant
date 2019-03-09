@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from mongoConn import MongoConn
 import json
+import sys
 import tushare as ts
 import mongoService
 import traceback
@@ -10,7 +11,8 @@ from concurrent.futures import ThreadPoolExecutor
 import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(level = logging.INFO)
-handler = logging.FileHandler("log.txt")
+#handler = logging.FileHandler("log.txt")
+handler = logging.FileHandler("/tmp/log.txt")
 handler.setLevel(logging.INFO)
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 handler.setFormatter(formatter)
@@ -77,15 +79,17 @@ def refreshAll():
     refreshAllHistData('2018-05-16', time.strftime("%Y-%m-%d"))
 
 def insertAllHistData(start, end):
+    logger.info('Start insertAllHistData')
     res = mongoService.find('stockBasic', {})
 
     count = 1
     for row in res:
        logger.info('count %d' %count)
-       logger.info('code is %s' %row['ts_code'])
+       #logger.info('code is %s' %row['ts_code'])
        insertSpecificHistData(row['ts_code'], start, end)
        count+=1
     
+    logger.info('End of insertAllHistData')
     #insertSpecificHistData('sh', start, end)#获取上证指数k线数据，其它参数与个股一致，下同
     #insertSpecificHistData('sz', start, end)#获取深圳成指k线数据
     #insertSpecificHistData('hs300', start, end)#获取沪深300指数k线数据
@@ -110,7 +114,7 @@ def insertSpecificHistData(code, startDate, endDate):
         df['v_ma' + str(ma)] = pd.Series(df.amount).rolling(window=ma).mean()
         
     #insertAndPrintResultResetIndex('stocksHistData', df)
-    insertAndPrintResult('stocksHistData', df)
+    insertAndPrintResult('stocksHistData_' + startDate[0:4], df)
 
 def insertAndPrintResultResetIndex(tableName, data):
     insertAndPrintResult(tableName, data.reset_index())
@@ -146,8 +150,10 @@ if __name__ == "__main__":
     # #insertStocksBasics()
     #insertFundHoldings()
     #print(ts.__version__)
-    refreshAllHistData('20150514', '20190111')
-    #insertAllHistData('20190107', '20190111')
+    #refreshAllHistData('20150514', '20190111')
+    startDate = sys.argv[1] # 20190227
+    endDate = sys.argv[2] # 20190307
+    insertAllHistData(startDate, endDate)
     #refreshStocksBasics()
     #refreshTop10Holders()
     #insertTop10Holders()
