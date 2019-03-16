@@ -67,7 +67,7 @@ def refreshTop10Holders():
 def refreshAllHistData(start, end):
     logger.info("refreshAllHistData...")
     mongoService.drop_collection('stocksHistData')
-    insertAllHistData(start, end)
+    insertAllHistData(start, end, "False")
 
 def refreshAll():
     refreshAllStocksOfToday()
@@ -78,7 +78,7 @@ def refreshAll():
     refreshTop10Holders()
     refreshAllHistData('2018-05-16', time.strftime("%Y-%m-%d"))
 
-def insertAllHistData(start, end):
+def insertAllHistData(start, end, isOneDay):
     logger.info('Start insertAllHistData')
     res = mongoService.find('stockBasic', {})
 
@@ -86,7 +86,7 @@ def insertAllHistData(start, end):
     for row in res:
        logger.info('count %d' %count)
        #logger.info('code is %s' %row['ts_code'])
-       insertSpecificHistData(row['ts_code'], start, end)
+       insertSpecificHistData(row['ts_code'], start, end, isOneDay)
        count+=1
     
     logger.info('End of insertAllHistData')
@@ -97,10 +97,10 @@ def insertAllHistData(start, end):
     #insertSpecificHistData('zxb', start, end)#获取中小板指数k线数据
     #insertSpecificHistData('cyb', start, end)#获取创业板指数k线数据
 
-def insertSpecificHistData(code, startDate, endDate):
+def insertSpecificHistData(code, startDate, endDate, isOneDay):
     logger.info('code is %s, start date: %s, end date: %s' %(code, startDate, endDate))
     pro = ts.pro_api()
-    df = ts.pro_bar(pro_api=pro, ts_code=code, adj='qfq', start_date=startDate, end_date=endDate)
+    df = ts.pro_bar(pro_api=pro, ts_code=code, adj='qfq', start_date=startDate, end_date=endDate, ma=[5, 10, 20, 60, 120, 250])
     if(df is None):
         logger.info('Can not find hist data for %s' %code)
         return
@@ -108,13 +108,17 @@ def insertSpecificHistData(code, startDate, endDate):
     df = df.sort_index()
     df['code'] = code
     #年线是250日均线，半年线是120日均线，月线是30日均线
-    ma_list = [30,60,120,250]
-    for ma in ma_list:
-        df['ma' + str(ma)] = pd.Series(df.close).rolling(window=ma).mean()
-        df['v_ma' + str(ma)] = pd.Series(df.amount).rolling(window=ma).mean()
-        
-    #insertAndPrintResultResetIndex('stocksHistData', df)
-    insertAndPrintResult('stocksHistData_' + startDate[0:4], df)
+    #ma_list = [30,60,120,250]
+    #for ma in ma_list:
+    #    df['ma' + str(ma)] = pd.Series(df.close).rolling(window=ma).mean()
+    #    df['v_ma' + str(ma)] = pd.Series(df.amount).rolling(window=ma).mean()
+    if(isOneDay == "True"):
+        logger.info("Only save today's data, remove rest of data")
+        indexNotEndDate = df[(df.index != endDate)].index.tolist()
+        df = df.drop(indexNotEndDate);
+    
+    insertAndPrintResult('stocksHistData_' + endDate[0:4], df)
+    
 
 def insertAndPrintResultResetIndex(tableName, data):
     insertAndPrintResult(tableName, data.reset_index())
@@ -125,9 +129,6 @@ def insertAndPrintResult(tableName, data):
         logger.info('Cant insert to db as data is empty for %s' %jsonStr)
         return
     mongoService.insert(tableName, json.loads(jsonStr))
-    #res=mongoService.find(tableName,{})
-    #for k in res:
-        #print(k)
 
 def refreshAndPrintResultResetIndex(tableName, data):
     refreshAndPrintResult(tableName, data.reset_index())
@@ -153,7 +154,8 @@ if __name__ == "__main__":
     #refreshAllHistData('20150514', '20190111')
     startDate = sys.argv[1] # 20190227
     endDate = sys.argv[2] # 20190307
-    insertAllHistData(startDate, endDate)
+    isOneDay = sys.argv[3]
+    insertAllHistData(startDate, endDate, isOneDay)
     #refreshStocksBasics()
     #refreshTop10Holders()
     #insertTop10Holders()
